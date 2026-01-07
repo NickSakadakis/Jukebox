@@ -1,0 +1,6 @@
+.env
+cookies.txt
+__pycache__/
+*.pyc
+Library/
+error_log.txt
