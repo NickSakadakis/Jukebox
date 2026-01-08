@@ -1,0 +1,48 @@
+
+DONE
+maybe make a the bot display messages when a user requests a song that doesnt exist in the library like
+"Song not found in Library
+Downloading...
+Converting...
+Complete"
+and then it will queue it up
+
+
+MAKE A DOWNLOADING PROGRESS BAR FOR WHEN ytdlp is downloading a song from teh search command
+MAKE ACTIVE PLAYER BUTTONS TO SKIP 1 minute of the song, as well as 10 minutes
+
+
+make live player title wrap its text up to the length of the player
+
+Have Jukebox always showing 20 buttons when selecting songs.
+- If list has less than 20 songs, gray out and disable useless buttons
+
+
+
+Create a Song Request Log / Song History
+
+
+have bot only allow interaction from members with a certain role
+
+	
+	
+Make the local match weak message ephemeral
+
+!!!!!!!!!!!!
+When selecting a video form the youtube results it sometimes says This interaction failed
+and the window doesnt disappear, probably trying to be deleted too fast
+
+
+
+-needs more testing to try and reproduce
+When a song ends (or the last song in the queue id assume too) the player gets 'stuck'
+on showing the last song as if it was still playng the song, the player updates every 5 seconds
+so if the song ends during those 5 seconds the player 'freezes' a snapshot but the song ends.
+
+
+
+FEATURE CONSIDERATIONS
+	if the user inserts a playlist link on Add a Song, and doesnt see or pick between Just a Song
+		or the entire playlist, to play just the song they selected
+		(current bot interaction plays nothing if the user didnt pick anything after 30 seconds)
+		

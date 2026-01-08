@@ -20,15 +20,19 @@ class PlayerControlView(discord.ui.View):
 
     @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="⏸️")
     async def play_pause_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if not interaction.guild:
+            return await interaction.response.send_message("❌ This command can only be used in a server!", ephemeral=True)
+        
         vc = interaction.guild.voice_client
         gid = str(interaction.guild.id)
 
         # 1. Start Engine: Bot is not playing and not paused (Idle state)
-        if not vc or (not vc.is_playing() and not vc.is_paused()):
+        if not vc or not (isinstance(vc, discord.VoiceClient) and (vc.is_playing() or vc.is_paused())):
             # Connect if not connected
             if not vc:
-                if interaction.user.voice:
-                    vc = await interaction.user.voice.channel.connect()
+                member = interaction.guild.get_member(interaction.user.id)
+                if member and member.voice and member.voice.channel:
+                    vc = await member.voice.channel.connect()
                 else:
                     return await interaction.response.send_message("❌ Please join a voice channel first!", ephemeral=True)
 
@@ -64,7 +68,7 @@ class PlayerControlView(discord.ui.View):
 
     @discord.ui.button(label="", style=discord.ButtonStyle.secondary, emoji="⏭️")
     async def skip_btn(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.guild.voice_client: 
+        if interaction.guild and interaction.guild.voice_client: 
             interaction.guild.voice_client.stop()
         await interaction.response.defer()
 
@@ -103,7 +107,7 @@ class PlayerControlView(discord.ui.View):
         vc = interaction.guild.voice_client
         if vc:
             state.STATE.start_t = 0
-            await vc.disconnect()
+            await vc.disconnect(force=True)
             
         # Reset the player to its "Idle" state instead of clearing it
         idle_embed = discord.Embed(
@@ -176,15 +180,20 @@ class SearchModal(discord.ui.Modal, title="Request a Song or Link"):
         msg = await interaction.followup.send(f"✅ Processing: **{self.query.value}**", ephemeral=True) 
         
         # 2. Voice Check & Auto-Join (Essential for the play logic to follow)
-        if not interaction.user.voice:
+        #The bot has to be in a server to join a voice channel
+        if not interaction.guild:
+            return
+        
+        member = interaction.guild.get_member(interaction.user.id)
+        if not member or not member.voice or not member.voice.channel:
             return await interaction.followup.send("❌ You must be in a voice channel first!", ephemeral=True)
             
         vc = interaction.guild.voice_client
         if not vc:
-            vc = await interaction.user.voice.channel.connect()
-        elif vc.channel != interaction.user.voice.channel:
-            await vc.move_to(interaction.user.voice.channel)
-
+            vc = await member.voice.channel.connect()
+        elif vc.channel != member.voice.channel:
+            await vc.move_to(member.voice.channel)
+ 
         # 3. Create Context and fix the author
         ctx = await self.music_cog.bot.get_context(interaction.message)
         ctx.author = interaction.user 
@@ -252,7 +261,7 @@ class LibraryGrid(discord.ui.View):
             
             # Find the button and LOCK it
             for item in self.children:
-                if getattr(item, 'label', None) == "Play All":
+                if isinstance(item, discord.ui.Button) and getattr(item, 'label', None) == "Play All":
                     item.label = "Wait..."
                     item.style = discord.ButtonStyle.secondary # Grey for "Inactive"
                     item.disabled = True 
@@ -265,7 +274,7 @@ class LibraryGrid(discord.ui.View):
             
             # Phase B: Enable the button for the "Confirmation Window"
             for item in self.children:
-                if getattr(item, 'label', None) == "Wait...":
+                if isinstance(item, discord.ui.Button) and getattr(item, 'label', None) == "Wait...":
                     item.label = "Confirm: Play All?"
                     item.style = discord.ButtonStyle.danger # Red for "Action needed"
                     item.disabled = False 
@@ -280,7 +289,7 @@ class LibraryGrid(discord.ui.View):
             if self.confirm_play_all:
                 self.confirm_play_all = False
                 for item in self.children:
-                    if getattr(item, 'label', None) == "Confirm: Play All?":
+                    if isinstance(item, discord.ui.Button) and getattr(item, 'label', None) == "Confirm: Play All?":
                         item.label = "Play All"
                         item.style = discord.ButtonStyle.success 
                         item.disabled = False
@@ -306,7 +315,7 @@ class LibraryGrid(discord.ui.View):
 
         # Revert button appearance
         for item in self.children:
-            if getattr(item, 'label', None) == "Are you sure?":
+            if isinstance(item, discord.ui.Button) and getattr(item, 'label', None) == "Are you sure?":
                 item.label = "Play All"
                 item.style = discord.ButtonStyle.success
                 item.emoji = "📁"
@@ -317,7 +326,7 @@ class LibraryGrid(discord.ui.View):
         
         # If not in VC, try to join the user
         if not vc:
-            if interaction.user.voice:
+            if interaction.user.voice and interaction.user.voice.channel:
                 vc = await interaction.user.voice.channel.connect()
             else:
                 # We can't use interaction.response here because we already deferred
@@ -418,7 +427,7 @@ class LibraryGrid(discord.ui.View):
             # 4. Voice logic
             vc = interaction.guild.voice_client
             # Add auto-connect if bot isn't in channel
-            if not vc and interaction.user.voice:
+            if not vc and interaction.user.voice and interaction.user.voice.channel:
                 vc = await interaction.user.voice.channel.connect()
 
             if vc and not vc.is_playing() and not vc.is_paused():
@@ -517,11 +526,6 @@ class PlaylistSelectView(discord.ui.View):
         self.stop()
         await interaction.response.defer()
     
-    
-
-
-
-
 class YouTubeSelectionView(discord.ui.View):
     def __init__(self, ctx, results, music_cog):
         super().__init__(timeout=30)
