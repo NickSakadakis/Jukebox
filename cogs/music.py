@@ -6,7 +6,6 @@ import asyncio
 import discord
 from discord.ext import commands, tasks
 from collections import deque
-from typing import Optional
 from rapidfuzz import fuzz
 import yt_dlp
 
@@ -20,7 +19,7 @@ class Music(commands.Cog):
         self.bot = bot
         self.live_update.start()
 
-    async def cog_unload(self):
+    def cog_unload(self):
         self.live_update.cancel()
 
     @tasks.loop(seconds=5)
@@ -51,11 +50,9 @@ class Music(commands.Cog):
                 embed.add_field(name="Progress", value=ts, inline=False)
                 embed.add_field(name="Up Next", value=up_next_text, inline=False)
                 
-                msg: discord.Message | None = state.STATE.msg
-                if msg is not None:
-                    await msg.edit(embed=embed)
-            except Exception as e:
-                # Message might be deleted or guild unavailable
+                await state.STATE.msg.edit(embed=embed)
+            except Exception:
+                 # Message might be deleted or guild unavailable
                 pass
 
     @live_update.before_loop
@@ -65,7 +62,7 @@ class Music(commands.Cog):
     async def play_next_song(self, vc, gid, channel):
         if gid in state.SONG_QUEUES and state.SONG_QUEUES[gid]:
             file_path, title = state.SONG_QUEUES[gid].popleft()
-            state.STATE.title, state.STATE.duration, state.STATE.start_t, state.STATE.is_paused = title, int(get_duration(file_path)), int(time.time()), False
+            state.STATE.title, state.STATE.duration, state.STATE.start_t, state.STATE.is_paused = title, get_duration(file_path), time.time(), False
             
             vc.play(discord.FFmpegPCMAudio(file_path, executable=config.FFMPEG_EXE), 
                     after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next_song(vc, gid, channel), self.bot.loop))
@@ -186,17 +183,8 @@ class Music(commands.Cog):
         asyncio.create_task(delete_after_delay(msg, 3))
         return added_tracks
 
-    async def process_youtube_logic(self, ctx, query, interaction: Optional[discord.Interaction] = None):
-        # Prefer guild from interaction when available (UI flows), fall back to ctx
-        guild = interaction.guild if interaction is not None else (ctx.guild if ctx is not None else None)
-        if guild is None:
-            # Cannot proceed outside a guild
-            if interaction is not None:
-                return await interaction.followup.send("❌ This command must be used in a server (not DMs).", ephemeral=True)
-            else:
-                return await ctx.send("❌ This command must be used in a server (not DMs).")
-
-        gid = str(guild.id)
+    async def process_youtube_logic(self, ctx, query, interaction: discord.Interaction = None):
+        gid = str(ctx.guild.id)
         is_link = query.startswith(("http://", "https://", "www.", "youtu."))
 
         fetch_opts = {'quiet': True, 'extract_flat': 'in_playlist', 'no_warnings': True}
@@ -243,86 +231,22 @@ class Music(commands.Cog):
             await view.wait()
             
             if view.selection:
-                # Ensure download_single has a ctx-like object when called from an interaction
-                _ctx = ctx
-                if _ctx is None and interaction is not None:
-                    class _CtxLike:
-                        def __init__(self, bot, guild, author, channel, interaction):
-                            self.bot = bot
-                            self.guild = guild
-                            self.author = author
-                            self.channel = channel
-                            self._interaction = interaction
-                            @property
-                            def voice_client(self):
-                                return self.guild.voice_client
-
-                            async def send(self, *a, **kw):
-                                return await self._interaction.followup.send(*a, **kw)
-                    _ctx = _CtxLike(self.bot, guild, interaction.user, interaction.channel, interaction)
-
-                f_path, title = await self.download_single(_ctx, view.selection['url'], view.selection['title'], view.selection['id'])
+                f_path, title = await self.download_single(ctx, view.selection['url'], view.selection['title'], view.selection['id'])
                 state.SONG_QUEUES[gid].append((f_path, title))
-                await self.start_or_queue(_ctx, f"✅ Queued: **{title}**")
+                await self.start_or_queue(ctx, f"✅ Queued: **{title}**")
             return
 
         # --- Case: Single Video Link ---
         v_info = info['entries'][0] if 'entries' in info else info
-        # Ensure ctx-like for single video download when called from an interaction
-        _ctx = ctx
-        if _ctx is None and interaction is not None:
-            class _CtxLike2:
-                def __init__(self, bot, guild, author, channel, interaction):
-                    self.bot = bot
-                    self.guild = guild
-                    self.author = author
-                    self.channel = channel
-                    self._interaction = interaction
-                @property
-                def voice_client(self):
-                    return self.guild.voice_client
-
-                async def send(self, *a, **kw):
-                    return await self._interaction.followup.send(*a, **kw)
-            _ctx = _CtxLike2(self.bot, guild, interaction.user, interaction.channel, interaction)
-
-        f_path, title = await self.download_single(_ctx, v_info['webpage_url'] if 'webpage_url' in v_info else query, v_info['title'], v_info['id'])
+        f_path, title = await self.download_single(ctx, v_info['webpage_url'] if 'webpage_url' in v_info else query, v_info['title'], v_info['id'])
         state.SONG_QUEUES[gid].append((f_path, title))
-        msg = await self.start_or_queue(_ctx, f"✅ Queued: **{title}**")
+        msg = await self.start_or_queue(ctx, f"✅ Queued: **{title}**")
         asyncio.create_task(delete_after_delay(msg, 3))
 
-    async def smart_play(self, ctx, query: str, interaction: Optional[discord.Interaction] = None):
-        # Prefer interaction.guild when available (UI/modal flows). Create a send helper.
-        guild = interaction.guild if interaction is not None else (ctx.guild if ctx is not None else None)
-        if guild is None:
-            if interaction is not None:
-                return await interaction.followup.send("❌ This command must be used within a server (not DMs).", ephemeral=True)
-            else:
-                return await ctx.send("❌ This command must be used within a server (not DMs).")
-
-        gid = str(guild.id)
+    async def smart_play(self, ctx, query: str, interaction: discord.Interaction = None):
+        gid = str(ctx.guild.id)
         if gid not in state.SONG_QUEUES: state.SONG_QUEUES[gid] = deque()
         query_clean = query.strip().lower()
-
-        send_func = (lambda *a, **kw: interaction.followup.send(*a, **kw)) if interaction is not None else (lambda *a, **kw: ctx.send(*a, **kw))
-
-        # Provide a ctx-like wrapper when call originates from an interaction/modal
-        _ctx = ctx
-        if _ctx is None and interaction is not None:
-            class _CtxLike3:
-                def __init__(self, bot, guild, author, channel, interaction):
-                    self.bot = bot
-                    self.guild = guild
-                    self.author = author
-                    self.channel = channel
-                    self._interaction = interaction
-                @property
-                def voice_client(self):
-                    return self.guild.voice_client
-
-                async def send(self, *a, **kw):
-                    return await self._interaction.followup.send(*a, **kw)
-            _ctx = _CtxLike3(self.bot, guild, interaction.user, interaction.channel, interaction)
 
         # 1. Handle Direct Links (Skip local search)
         if query.startswith(("http://", "https://", "www.")):
@@ -333,7 +257,7 @@ class Music(commands.Cog):
             if entry.is_dir() and entry.name.lower() == query_clean:
                 items = sorted(glob.glob(os.path.join(entry.path, '*.opus')))
                 for p in items: state.SONG_QUEUES[gid].append((p, os.path.basename(p)[:-5]))
-                return await self.start_or_queue(_ctx, f"📁 Queued folder: **{entry.name}** ({len(items)} songs)")
+                return await self.start_or_queue(ctx, f"📁 Queued folder: **{entry.name}** ({len(items)} songs)")
 
         # 3. Local Song Search (Fuzzy Match)
         best_match = None
@@ -344,14 +268,14 @@ class Music(commands.Cog):
                 highest_score, best_match = score, item
 
         # 4. Threshold Decision (Adjust 90 to your liking)
-        if best_match and highest_score >= 90:
+        if highest_score >= 90:
             state.SONG_QUEUES[gid].append((best_match['path'], best_match['title']))
-            await self.start_or_queue(_ctx, f"✅ Found locally: **{best_match['title']}**")
+            await self.start_or_queue(ctx, f"✅ Found locally: **{best_match['title']}**")
         else:
             # No good local match -> Search YouTube
             if highest_score > 0:
-                await send_func(f"🔍 Local match weak ({highest_score:.1f}%). Checking YouTube...", delete_after=3)
-            await self.process_youtube_logic(_ctx, query, interaction)
+                await ctx.send(f"🔍 Local match weak ({highest_score:.1f}%). Checking YouTube...", delete_after=3)
+            await self.process_youtube_logic(ctx, query, interaction)
 
     @commands.command(name="library", aliases=["lib"])
     async def library(self, ctx, *, query=None):
