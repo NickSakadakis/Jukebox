@@ -226,21 +226,26 @@ class LibraryGrid(discord.ui.View):
 
         # --- SONG VIEW (Dynamic Numbering) ---
         start_index = self.page * 20
-        end_index = start_index + 20
-        current_batch = self.files[start_index:end_index]
-
-        for i, full_path in enumerate(current_batch):
-            title = os.path.basename(full_path)[:-5]
+        
+        # Loop exactly 20 times to ensure 20 buttons are always displayed
+        for i in range(20):
+            abs_index = start_index + i
+            display_number = abs_index + 1
+            row = i // 5  # Keep buttons in 4 rows of 5
             
-            # This calculates 21, 22, 23... on page 1
-            display_number = start_index + i + 1 
-            
-            btn = discord.ui.Button(
-                label=str(display_number), 
-                style=discord.ButtonStyle.primary,
-                row=i // 5  # Keep buttons in 4 rows of 5
-            )
-            btn.callback = self.make_song_callback(full_path, title)
+            if abs_index < len(self.files):
+                full_path = self.files[abs_index]
+                title = os.path.basename(full_path)[:-5]
+                btn = discord.ui.Button(
+                    label=str(display_number), 
+                    style=discord.ButtonStyle.primary,
+                    row=row
+                )
+                btn.callback = self.make_song_callback(full_path, title)
+            else:
+                # Create a disabled placeholder button
+                btn = discord.ui.Button(label=str(display_number), style=discord.ButtonStyle.secondary, disabled=True, row=row)
+                
             self.add_item(btn)
 
         self.add_nav_row()
@@ -413,7 +418,7 @@ class LibraryGrid(discord.ui.View):
             
             # 3. Handle deletion in the background 
             # (So the bot starts playing music IMMEDIATELY without waiting 5 seconds)
-            asyncio.create_task(delete_after_delay(interaction, 5))
+            asyncio.create_task(delete_after_delay(msg, 5))
             
             # 4. Voice logic
             vc = interaction.guild.voice_client

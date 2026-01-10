@@ -11,33 +11,47 @@ import yt_dlp
 
 import config
 import state
-from utils.helpers import log_error, get_duration, get_progress_bar, format_time, delete_after_delay
+from state import STATE as plstate
+from utils.helpers import (log_error, get_duration, get_progress_bar, 
+                           format_time, delete_after_delay)
 from ui.views import PlayerControlView, PlaylistSelectView, YouTubeSelectionView
 
+
+
 class Music(commands.Cog):
+    
     def __init__(self, bot):
         self.bot = bot
         self.live_update.start()
+        
 
     def cog_unload(self):
         self.live_update.cancel()
-
+    
+    
     @tasks.loop(seconds=5)
     async def live_update(self):
-        if state.STATE.msg and state.STATE.start_t > 0:
+        
+        if plstate.msg and plstate.start_t > 0:
             # 1. Calculate Progress
-            elapsed = (state.STATE.pause_start - state.STATE.start_t) if state.STATE.is_paused else (time.time() - state.STATE.start_t)
+            elapsed = (
+                (plstate.pause_start - plstate.start_t) 
+                if plstate.is_paused 
+                else (time.time() - plstate.start_t)
+                )
             
             # if the song is over, stop updating so the 'Idle' embed can stay
-            if elapsed > state.STATE.duration + 2: # +2 seconds buffer
+            if elapsed > plstate.duration + 2: # +2 seconds buffer
                 return
             
-            bar = get_progress_bar(elapsed, state.STATE.duration)
-            ts = f"`{format_time(elapsed)} {bar} {format_time(state.STATE.duration)}`"
+            bar = get_progress_bar(elapsed, plstate.duration)
+            ts = (f"`{format_time(elapsed)}"
+                  f"{bar}"
+                  f"{format_time(plstate.duration)}`")
             
             # 2. Get "Up Next" Info
             try:
-                gid = str(state.STATE.msg.guild.id)
+                gid = str(plstate.msg.guild.id)
                 if gid in state.SONG_QUEUES and len(state.SONG_QUEUES[gid]) > 0:
                     # Look at the first item in the queue without removing it
                     next_song_title = state.SONG_QUEUES[gid][0][1]
@@ -46,11 +60,13 @@ class Music(commands.Cog):
                     up_next_text = "Empty (Add more with !play)"
 
                 # 3. Build Embed
-                embed = discord.Embed(title="Now Playing", description=f"**{state.STATE.title}**", color=0x3498db)
+                embed = discord.Embed(
+                    title="Now Playing", 
+                    description=f"**{plstate.title}**", color=0x3498db)
                 embed.add_field(name="Progress", value=ts, inline=False)
                 embed.add_field(name="Up Next", value=up_next_text, inline=False)
                 
-                await state.STATE.msg.edit(embed=embed)
+                await plstate.msg.edit(embed=embed)
             except Exception:
                  # Message might be deleted or guild unavailable
                 pass
@@ -62,23 +78,29 @@ class Music(commands.Cog):
     async def play_next_song(self, vc, gid, channel):
         if gid in state.SONG_QUEUES and state.SONG_QUEUES[gid]:
             file_path, title = state.SONG_QUEUES[gid].popleft()
-            state.STATE.title, state.STATE.duration, state.STATE.start_t, state.STATE.is_paused = title, get_duration(file_path), time.time(), False
+            (plstate.title, plstate.duration, 
+             plstate.start_t, plstate.is_paused) = (
+                 title, get_duration(file_path), 
+                 time.time(), False)
             
             vc.play(discord.FFmpegPCMAudio(file_path, executable=config.FFMPEG_EXE), 
-                    after=lambda e: asyncio.run_coroutine_threadsafe(self.play_next_song(vc, gid, channel), self.bot.loop))
+                    after=lambda e: 
+                    asyncio.run_coroutine_threadsafe(
+                        self.play_next_song(vc, gid, channel), self.bot.loop))
             
             # PERMANENT PLAYER LOGIC:
             embed = discord.Embed(title="Now Playing", description=f"**{title}**", color=0x3498db)
-            if state.STATE.msg:
+            if plstate.msg:
                 try:
-                    await state.STATE.msg.edit(embed=embed, view=PlayerControlView(self))
+                    await plstate.msg.edit(embed=embed, 
+                                              view=PlayerControlView(self))
                 except:
-                    state.STATE.msg = await channel.send(embed=embed, view=PlayerControlView(self))
+                    plstate.msg = await channel.send(embed=embed, view=PlayerControlView(self))
             else:
-                state.STATE.msg = await channel.send(embed=embed, view=PlayerControlView(self))
+                plstate.msg = await channel.send(embed=embed, view=PlayerControlView(self))
         else:
-            state.STATE.start_t = 0 # CRITICAL: This tells the loop to stop updating
-            state.STATE.title = ""
+            plstate.start_t = 0 # CRITICAL: This tells the loop to stop updating
+            plstate.title = ""
             
             # Queue finished: Reset the player to Idle
             idle_embed = discord.Embed(
@@ -86,12 +108,13 @@ class Music(commands.Cog):
                 description="🎶 **Queue finished.**\nWaiting for new songs...",
                 color=discord.Color.blue()
             )
-            if state.STATE.msg:
+            if plstate.msg:
                 try:
-                    await state.STATE.msg.edit(embed=idle_embed, view=PlayerControlView(self))
+                    await plstate.msg.edit(embed=idle_embed, 
+                                              view=PlayerControlView(self))
                 except:
                      pass
-            state.STATE.start_t = 0
+            plstate.start_t = 0
 
     async def start_or_queue(self, ctx, message):
         vc = ctx.voice_client or await ctx.author.voice.channel.connect()
@@ -330,7 +353,7 @@ class Music(commands.Cog):
                 )
                 
                 msg = await channel.send(embed=idle_embed, view=PlayerControlView(self))
-                state.STATE.msg = msg  
+                plstate.msg = msg  
 
 async def setup(bot):
     await bot.add_cog(Music(bot))

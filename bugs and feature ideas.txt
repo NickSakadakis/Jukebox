@@ -14,6 +14,7 @@ MAKE ACTIVE PLAYER BUTTONS TO SKIP 1 minute of the song, as well as 10 minutes
 
 make live player title wrap its text up to the length of the player
 
+done.
 Have Jukebox always showing 20 buttons when selecting songs.
 - If list has less than 20 songs, gray out and disable useless buttons
 
@@ -45,4 +46,11 @@ FEATURE CONSIDERATIONS
 	if the user inserts a playlist link on Add a Song, and doesnt see or pick between Just a Song
 		or the entire playlist, to play just the song they selected
 		(current bot interaction plays nothing if the user didnt pick anything after 30 seconds)
-		
+
+Consider making the buttons next to the song list instead of below it.
+Maybe each button would have the song's title in it, pressing it, would alter
+the state of the button, pressing it again will dequeue the song 
+(if its in the queue, if i recall correctly when a song is actively playing its removed from the queue)
+
+code that is supposed to delete the ✅ Queued: Bagasas [YD0CWJE7gQQ]" message deletes the Library
+instead, go make the ✅ Queued: Bagasas [YD0CWJE7gQQ] in to a msg = and delete the message instead
