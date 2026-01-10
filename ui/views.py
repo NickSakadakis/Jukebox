@@ -103,7 +103,7 @@ class PlayerControlView(discord.ui.View):
         vc = interaction.guild.voice_client
         if vc:
             state.STATE.start_t = 0
-            await vc.disconnect()
+            await vc.disconnect(force=True)
             
         # Reset the player to its "Idle" state instead of clearing it
         idle_embed = discord.Embed(

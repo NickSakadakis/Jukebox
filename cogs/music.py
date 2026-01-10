@@ -25,7 +25,7 @@ class Music(commands.Cog):
         self.live_update.start()
         
 
-    def cog_unload(self):
+    async def cog_unload(self):
         self.live_update.cancel()
     
     
@@ -184,7 +184,7 @@ class Music(commands.Cog):
                         await status_msg.edit(content=f"⏳ **Downloading ({i+1}/{count}):**\n`{v_title}`")
                         info = await asyncio.to_thread(ydl.extract_info, v_url, download=True)
                         f_path = os.path.splitext(ydl.prepare_filename(info))[0] + ".opus"
-                        added_tracks.append((f_path, info['title']))
+                        added_tracks.append((f_path, info.get('title', 'Unknown Title')))
                         await asyncio.sleep(random.uniform(5, 15)) # Protection
                     except Exception as e:
                         err_str = str(e).lower()
@@ -261,7 +261,7 @@ class Music(commands.Cog):
 
         # --- Case: Single Video Link ---
         v_info = info['entries'][0] if 'entries' in info else info
-        f_path, title = await self.download_single(ctx, v_info['webpage_url'] if 'webpage_url' in v_info else query, v_info['title'], v_info['id'])
+        f_path, title = await self.download_single(ctx, v_info['webpage_url'] if 'webpage_url' in v_info else query, v_info.get('title', 'Unknown Title'), v_info['id'])
         state.SONG_QUEUES[gid].append((f_path, title))
         msg = await self.start_or_queue(ctx, f"✅ Queued: **{title}**")
         asyncio.create_task(delete_after_delay(msg, 3))
