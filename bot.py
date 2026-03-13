@@ -8,6 +8,15 @@ intents = discord.Intents.default()
 intents.message_content = True
 bot = commands.Bot(command_prefix="!", intents=intents, help_command=None)
 
+@bot.command()
+async def reload(ctx):
+    """Reloads the music cog to apply code changes without restarting."""
+    try:
+        await bot.reload_extension("cogs.music")
+        await ctx.send("✅ **Music Cog Reloaded!** Updates are live.")
+    except Exception as e:
+        await ctx.send(f"❌ Error reloading: {e}")
+
 async def main():
     async with bot:
         # Load extensions (cogs)

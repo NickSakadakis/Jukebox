@@ -6,3 +6,4 @@ Library/
 error_log.txt
 *.code-workspace
 .venv
+run.bat

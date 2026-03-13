@@ -83,7 +83,13 @@ class Music(commands.Cog):
                  title, get_duration(file_path), 
                  time.time(), False)
             
-            vc.play(discord.FFmpegPCMAudio(file_path, executable=config.FFMPEG_EXE), 
+            # Optimization: Use FFmpegOpusAudio to reduce CPU usage (avoids double transcoding)
+            try:
+                source = await discord.FFmpegOpusAudio.from_probe(file_path, executable=config.FFMPEG_EXE)
+            except Exception:
+                source = discord.FFmpegPCMAudio(file_path, executable=config.FFMPEG_EXE)
+
+            vc.play(source, 
                     after=lambda e: 
                     asyncio.run_coroutine_threadsafe(
                         self.play_next_song(vc, gid, channel), self.bot.loop))
@@ -166,6 +172,7 @@ class Music(commands.Cog):
             'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'socket_timeout': 30,
             'retries': 3,
+            'remote_components': ['ejs:github'],
         }
 
         added_tracks = []
@@ -210,7 +217,11 @@ class Music(commands.Cog):
         gid = str(ctx.guild.id)
         is_link = query.startswith(("http://", "https://", "www.", "youtu."))
 
-        fetch_opts = {'quiet': True, 'extract_flat': 'in_playlist', 'no_warnings': True}
+        fetch_opts = {
+            'quiet': True, 
+            'extract_flat': 'in_playlist', 
+            'remote_components': ['ejs:github']
+        }
         try:
             with yt_dlp.YoutubeDL(fetch_opts) as ydl:
                 search_query = query if is_link else f"ytsearch5:{query}"

@@ -25,4 +25,5 @@ YDL_OPTIONS = {
     'user_agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     'socket_timeout': 30, # Give up after 30 seconds of no data
     'retries': 3,          # Try 3 times before skipping
+    'remote_components': ['ejs:github'],
 }

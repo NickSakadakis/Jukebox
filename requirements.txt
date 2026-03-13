@@ -1,5 +1,10 @@
-discord.py
+# the brackets are for extra packages of the libraries they are attached to
+#   * For discord.py a recent update requires both PyNaCl and davey to work properly
+#       for needed for Voice/E2EE encryption and the [voice] extra package contains both of them.\
+
+# discord.py along with PyNaCl and davey
+discord.py[voice]
 python-dotenv
 rapidfuzz
-yt-dlp
-PyNaCl
+# yt-dlp along with standard plugins like yt-dlp-ejs and curl_cffi for bypassing bot protections
+yt-dlp[default]

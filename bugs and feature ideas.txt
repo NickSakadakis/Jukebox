@@ -54,3 +54,29 @@ the state of the button, pressing it again will dequeue the song
 
 code that is supposed to delete the ✅ Queued: Bagasas [YD0CWJE7gQQ]" message deletes the Library
 instead, go make the ✅ Queued: Bagasas [YD0CWJE7gQQ] in to a msg = and delete the message instead
+
+
+make music line 300  and 296 and other ctx messages ephemeral
+
+remove the !cancel command for when the player
+bulk downloads (ex. playlist) have 2 buttons, 1 that stops the download an saves the songs
+and another that stops the download and deletes the items it just downloaded. (for when the user
+started downloading a playlist and they realize its the wrong one or something)
+
+have a check for when a playlist tries to be created with the same name as an existing one
+so that it gets appropriately renamed..
+
+maybe teh
+
+can we made the youtube choices and the library maybe pop up in a modal like Add a Song does?
+i think not but we'll see
+
+
+
+there is an intersting bug that happened seemingly randomly
+where while the player was playing songs near constantly
+i noticed another player pop up, the previous player remained
+it was still functional, it stopped updating (like the new songs
+playing and the moving dot for the song duration) but all its
+buttons kept working fine, even clicking the top ghost player's
+buttons the code correctly updated the bottom active players..
